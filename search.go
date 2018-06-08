@@ -13,6 +13,8 @@ import (
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 搜索索引接口
+ * elastic_api.NewMatchAllQuery()
+ * elastic_api.NewTermQuery("fieldname", "fieldvalue")
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 type (
 	ISearchIndex interface {
