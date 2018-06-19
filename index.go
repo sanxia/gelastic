@@ -34,31 +34,6 @@ func (s *searchIndex) IsIndexExists(index string) (bool, error) {
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 创建索引
- *		"settings":{
- *			"number_of_shards":1,
- *			"number_of_replicas":0
- *		},
- *		"mappings":{
- *			"_doc":{
- *				"properties":{
- *					"user":{
- *						"type":"keyword"
- *					},
- *					"message":{
- *						"type":"text"
- *					},
- *					"retweets":{
- *						"type":"integer"
- *					},
- *					"created":{
- *						"type":"date"
- *					},
- *					"attributes":{
- *						"type":"object"
- *					}
- *				}
- *			}
- *		}
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *searchIndex) CreateIndex(index, metaMapping string) (bool, error) {
 	s.ensureElasticClient()
