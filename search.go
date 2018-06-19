@@ -1,6 +1,10 @@
 package gelastic
 
 import (
+	"time"
+)
+
+import (
 	elastic_api "github.com/olivere/elastic"
 )
 
@@ -22,30 +26,45 @@ type (
 		CreateIndex(index, metaMapping string) (bool, error)
 		DeleteIndex(index string) (bool, error)
 
-		IndexData(index, doc string, id string, data interface{}) error
-		FlushIndex(index string) error
+		IsIndexDataExists(index, typ, id string) (bool, error)
+		GetIndexData(index, typ, id string) (interface{}, error)
+		IndexData(index, typ, id string, data interface{}) error
+		FlushIndexData(index string) error
 
 		Query(query elastic_api.Query, option *QueryOption) (*elastic_api.SearchResult, error)
 		Search() *elastic_api.SearchService
+		Bulk(requests ...elastic_api.BulkableRequest) (*elastic_api.BulkResponse, error)
+
+		Version(url string) (string, error)
 	}
 )
 
 type (
 	searchIndex struct {
-		Option *IndexOption
+		option *IndexOption
+		client *elastic_api.Client
 	}
 )
 
-var (
-	elasticClient *elastic_api.Client
-)
-
-func NewSearchIndex(option *IndexOption) ISearchIndex {
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 初始化SearchIndex
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func NewSearchIndex(option *IndexOption) (ISearchIndex, error) {
 	if option == nil {
 		option = DefaultIndexOption()
 	}
 
-	return &searchIndex{
-		Option: option,
+	elasticClient, err := elastic_api.NewClient(
+		elastic_api.SetURL(option.Hosts...),
+		elastic_api.SetHealthcheckInterval(time.Duration(option.HealthcheckInterval)*time.Second),
+		elastic_api.SetMaxRetries(option.MaxRetries))
+
+	if err != nil {
+		return nil, err
 	}
+
+	return &searchIndex{
+		option: option,
+		client: elasticClient,
+	}, nil
 }

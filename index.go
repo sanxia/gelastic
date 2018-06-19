@@ -24,7 +24,7 @@ import (
 func (s *searchIndex) IsIndexExists(index string) (bool, error) {
 	s.ensureElasticClient()
 
-	exists, err := elasticClient.IndexExists(index).Do(context.Background())
+	exists, err := s.client.IndexExists(index).Do(context.Background())
 	if err != nil {
 		return false, err
 	}
@@ -34,11 +34,39 @@ func (s *searchIndex) IsIndexExists(index string) (bool, error) {
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 创建索引
+ *		"settings":{
+ *			"number_of_shards":1,
+ *			"number_of_replicas":0
+ *		},
+ *		"mappings":{
+ *			"_doc":{
+ *				"properties":{
+ *					"user":{
+ *						"type":"keyword"
+ *					},
+ *					"message":{
+ *						"type":"text"
+ *					},
+ *					"retweets":{
+ *						"type":"integer"
+ *					},
+ *					"created":{
+ *						"type":"date"
+ *					},
+ *					"attributes":{
+ *						"type":"object"
+ *					}
+ *				}
+ *			}
+ *		}
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *searchIndex) CreateIndex(index, metaMapping string) (bool, error) {
 	s.ensureElasticClient()
 
-	createIndex, err := elasticClient.CreateIndex(index).Body(metaMapping).Do(context.Background())
+	createIndex, err := s.client.
+		CreateIndex(index).
+		Body(metaMapping).
+		Do(context.Background())
 	if err != nil {
 		return false, err
 	}
@@ -52,7 +80,7 @@ func (s *searchIndex) CreateIndex(index, metaMapping string) (bool, error) {
 func (s *searchIndex) DeleteIndex(index string) (bool, error) {
 	s.ensureElasticClient()
 
-	deleteIndex, err := elasticClient.DeleteIndex(index).Do(context.Background())
+	deleteIndex, err := s.client.DeleteIndex(index).Do(context.Background())
 	if err != nil {
 		return false, err
 	}
@@ -61,53 +89,105 @@ func (s *searchIndex) DeleteIndex(index string) (bool, error) {
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 索引数据
+ * 判断索引数据是否存在
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) IndexData(index, doc string, id string, data interface{}) error {
+func (s *searchIndex) IsIndexDataExists(index, typ, id string) (bool, error) {
+	s.ensureElasticClient()
+
+	exists, err := s.client.Exists().Index(index).Type(typ).Id(id).Do(context.Background())
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取索引数据
+ * err = json.Unmarshal(*doc.Source, &type)
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *searchIndex) GetIndexData(index, typ, id string) (interface{}, error) {
 	s.ensureElasticClient()
 
 	if len(index) == 0 ||
-		len(doc) == 0 ||
+		len(typ) == 0 ||
+		len(id) == 0 {
+		return "", errors.New("argument error")
+	}
+
+	var source interface{}
+
+	doc, err := s.client.Get().
+		Index(index).
+		Type(typ).
+		Id(id).
+		Do(context.Background())
+
+	if err == nil {
+		if !doc.Found {
+			err = errors.New("not found error")
+		} else {
+			if doc.Source != nil {
+				source = *doc.Source
+			}
+		}
+	}
+
+	return source, err
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 索引数据
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *searchIndex) IndexData(index, typ, id string, data interface{}) error {
+	s.ensureElasticClient()
+
+	if len(index) == 0 ||
+		len(typ) == 0 ||
 		len(id) == 0 {
 		return errors.New("argument error")
 	}
 
-	//json序列化
-	bodyJson, jsonErr := glib.ToJson(data)
-	if jsonErr != nil {
-		return jsonErr
+	var err error
+	if bodyString, isOk := data.(string); isOk {
+		_, err = s.client.Index().
+			Index(index).
+			Type(typ).
+			Id(id).
+			BodyString(bodyString).
+			Do(context.Background())
+	} else {
+		bodyJson, err := glib.ToJson(data)
+		if err == nil {
+			_, err = s.client.Index().
+				Index(index).
+				Type(typ).
+				Id(id).
+				BodyJson(bodyJson).
+				Do(context.Background())
+		}
 	}
 
-	//索引数据
-	_, err := elasticClient.Index().
-		Index(index).
-		Type(doc).
-		Id(id).
-		BodyJson(bodyJson).
-		Do(context.Background())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * Flush索引
+ * 刷新内存数据到磁盘
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) FlushIndex(index string) error {
+func (s *searchIndex) FlushIndexData(index string) error {
 	s.ensureElasticClient()
 
 	if len(index) == 0 {
 		return errors.New("argument error")
 	}
 
-	_, err := elasticClient.Flush().Index(index).Do(context.Background())
+	_, err := s.client.Flush().Index(index).Do(context.Background())
 	return err
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 查询数据
+ * 简单查询数据
+ * elastic.NewTermQuery("username", "mliu")
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *searchIndex) Query(
 	query elastic_api.Query,
@@ -120,38 +200,71 @@ func (s *searchIndex) Query(
 		option = DefaultQueryOption()
 	}
 
-	searchResult, err := elasticClient.Search().Index(option.Indexs...).Type(option.Types...).Query(query).Sort(option.SortField, option.IsAscending).From(option.From).Size(option.Size).Pretty(true).Do(context.Background())
+	searchResult, err := s.client.Search().
+		Index(option.Indexs...).
+		Type(option.Types...).
+		Query(query).
+		Sort(option.SortField, option.IsAscending).
+		From(option.From).
+		Size(option.Size).
+		Pretty(true).
+		Do(context.Background())
+
+		/*
+		   if searchResult.Hits.TotalHits > 0 {
+		       for _, hit := range searchResult.Hits.Hits {
+		       	var indexData IndexData
+		           err := json.Unmarshal(*hit.Source, &indexData)
+		       }
+		   }
+		*/
+
 	return searchResult, err
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 返回原始搜索服务接口
+ * 复杂搜索数据
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *searchIndex) Search() *elastic_api.SearchService {
 	s.ensureElasticClient()
 
-	searchIndex := elastic_api.NewSearchService(elasticClient)
+	searchIndex := elastic_api.NewSearchService(s.client)
 	return searchIndex
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * Bulk批处理
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *searchIndex) Bulk(requests ...elastic_api.BulkableRequest) (*elastic_api.BulkResponse, error) {
+	bulkRequest := s.client.Bulk()
+	return bulkRequest.Add(requests...).Do(context.Background())
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取搜索引擎服务版本
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *searchIndex) Version(url string) (string, error) {
+	return s.client.ElasticsearchVersion(url)
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 初始化ElasticClient
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *searchIndex) ensureElasticClient() {
-	if elasticClient == nil {
-		s.connectionElastic()
+	if s.client == nil {
+		s.initElasticClient()
 	}
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 连接ElasticClient
+ * init ElasticClient
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) connectionElastic() {
-	if client, err := elastic_api.NewClient(
-		elastic_api.SetURL(s.Option.Hosts...),
-		elastic_api.SetHealthcheckInterval(time.Duration(s.Option.HealthcheckInterval)*time.Second),
-		elastic_api.SetMaxRetries(s.Option.MaxRetries)); err == nil {
+func (s *searchIndex) initElasticClient() {
+	if elasticClient, err := elastic_api.NewClient(
+		elastic_api.SetURL(s.option.Hosts...),
+		elastic_api.SetHealthcheckInterval(time.Duration(s.option.HealthcheckInterval)*time.Second),
+		elastic_api.SetMaxRetries(s.option.MaxRetries)); err == nil {
 
-		elasticClient = client
+		s.client = elasticClient
 	}
 }
