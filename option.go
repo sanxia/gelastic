@@ -42,7 +42,7 @@ func DefaultQueryOption() *QueryOption {
 		Indexs:      make([]string, 0),
 		Types:       make([]string, 0),
 		From:        1,
-		Size:        99999,
+		Size:        10,
 		SortField:   "",
 		Timeout:     "30s",
 		IsAscending: false,
