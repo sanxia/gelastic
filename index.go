@@ -175,24 +175,38 @@ func (s *searchIndex) Query(
 		option = DefaultQueryOption()
 	}
 
-	searchResult, err := s.client.Search().
-		Index(option.Indexs...).
-		Type(option.Types...).
+	//查询对象
+	search := s.client.Search().
 		Query(query).
-		Sort(option.SortField, option.IsAscending).
-		From(option.From).
-		Size(option.Size).
-		Pretty(true).
-		Do(context.Background())
+		Pretty(true)
 
-		/*
-		   if searchResult.Hits.TotalHits > 0 {
-		       for _, hit := range searchResult.Hits.Hits {
-		       	var indexData IndexData
-		           err := json.Unmarshal(*hit.Source, &indexData)
-		       }
-		   }
-		*/
+	if len(option.Indexs) > 0 {
+		search = search.Index(option.Indexs...)
+	}
+
+	if len(option.Types) > 0 {
+		search = search.Type(option.Types...)
+	}
+
+	if option.Size > 0 {
+		search = search.From(option.From).Size(option.Size)
+	}
+
+	if len(option.SortField) > 0 {
+		search = search.Sort(option.SortField, option.IsAscending)
+	}
+
+	//获取查询结果
+	searchResult, err := search.Do(context.Background())
+
+	/*
+	   if searchResult.Hits.TotalHits > 0 {
+	       for _, hit := range searchResult.Hits.Hits {
+	       	var indexData IndexData
+	           err := json.Unmarshal(*hit.Source, &indexData)
+	       }
+	   }
+	*/
 
 	return searchResult, err
 }
@@ -213,6 +227,13 @@ func (s *searchIndex) Search() *elastic_api.SearchService {
 func (s *searchIndex) Bulk(requests ...elastic_api.BulkableRequest) (*elastic_api.BulkResponse, error) {
 	bulkRequest := s.client.Bulk()
 	return bulkRequest.Add(requests...).Do(context.Background())
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取搜索引擎客户端
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *searchIndex) GetClient() *elastic_api.Client {
+	return s.client
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
