@@ -240,7 +240,14 @@ func (s *searchIndex) GetTokens(index, text string, analyzer ...string) ([]strin
 		currentAnalyzer = analyzer[0]
 	}
 
-	if res, err := s.client.IndexAnalyze().Analyzer(currentAnalyzer).Text(text).Do(context.Background()); err != nil {
+	//分词器
+	indexAnalyzer := s.client.IndexAnalyze().Analyzer(currentAnalyzer)
+	if len(index) > 0 {
+		indexAnalyzer = indexAnalyzer.Index(index)
+	}
+
+	//分词结果
+	if res, err := indexAnalyzer.Text(text).Do(context.Background()); err != nil {
 		return nil, err
 	} else {
 		for _, token := range res.Tokens {
