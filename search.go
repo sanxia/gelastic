@@ -35,6 +35,8 @@ type (
 		Search() *elastic_api.SearchService
 		Bulk(requests ...elastic_api.BulkableRequest) (*elastic_api.BulkResponse, error)
 
+		GetTokens(index, text string, analyzer ...string) ([]string, error)
+
 		GetClient() *elastic_api.Client
 		Version(url string) (string, error)
 	}

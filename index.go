@@ -230,6 +230,28 @@ func (s *searchIndex) Bulk(requests ...elastic_api.BulkableRequest) (*elastic_ap
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取搜索文字的分词结果
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *searchIndex) GetTokens(index, text string, analyzer ...string) ([]string, error) {
+	currentAnalyzer := "ik_max_word"
+	tokens := make([]string, 0)
+
+	if len(analyzer) > 0 {
+		currentAnalyzer = analyzer[0]
+	}
+
+	if res, err := s.client.IndexAnalyze().Analyzer(currentAnalyzer).Text(text).Do(context.Background()); err != nil {
+		return nil, err
+	} else {
+		for _, token := range res.Tokens {
+			tokens = append(tokens, token.Token)
+		}
+	}
+
+	return tokens, nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 获取搜索引擎客户端
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *searchIndex) GetClient() *elastic_api.Client {
