@@ -8,16 +8,19 @@ package gelastic
  * ================================================================================ */
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 索引选项数据域结构
+ * 搜索选项数据域结构
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-type IndexOption struct {
+type SearchOption struct {
 	Hosts               []string
+	Username            string
+	Password            string
 	HealthcheckInterval int
 	MaxRetries          int
+	IsAuth              bool
 }
 
-func DefaultIndexOption() *IndexOption {
-	return &IndexOption{
+func DefaultSearchOption() *SearchOption {
+	return &SearchOption{
 		Hosts:               []string{"127.0.0.1:9200"},
 		HealthcheckInterval: 10,
 		MaxRetries:          15,

@@ -3,7 +3,6 @@ package gelastic
 import (
 	"context"
 	"errors"
-	"time"
 )
 
 import (
@@ -12,7 +11,7 @@ import (
 )
 
 /* ================================================================================
- * Search Index Impl
+ * Search Impl
  * qq group: 582452342
  * email   : 2091938785@qq.com
  * author  : 美丽的地球啊 - mliu
@@ -21,27 +20,109 @@ import (
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 判断索引是否存在
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) IsIndexExists(index string) (bool, error) {
-	s.ensureElasticClient()
-
-	exists, err := s.client.IndexExists(index).Do(context.Background())
+func (s *search) IsIndexExists(index ...string) (bool, error) {
+	isExists, err := s.client.IndexExists(index...).Do(context.Background())
 	if err != nil {
 		return false, err
 	}
 
-	return exists, nil
+	return isExists, nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 判断索引数据是否存在
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) IsDataExists(index, typ, id string) (bool, error) {
+	isExists, err := s.client.Exists().Index(index).Type(typ).Id(id).Do(context.Background())
+	if err != nil {
+		return false, err
+	}
+
+	return isExists, nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取索引的文档总数
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) GetCount(index string) int64 {
+	count, _ := s.client.Count(index).Do(context.TODO())
+	return count
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取索引名称集合数据
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) GetIndexNames() ([]string, error) {
+	return s.client.IndexNames()
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取索引设置数据
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) GetIndexSettings(index ...string) (interface{}, error) {
+	if len(index) == 0 {
+		return nil, errors.New("argument error")
+	}
+
+	return s.client.IndexGetSettings().Index(index...).Do(context.Background())
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取索引映射数据
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) GetIndexMapping(index string) (interface{}, error) {
+	if len(index) == 0 {
+		return nil, errors.New("argument error")
+	}
+
+	return s.client.GetMapping().Index(index).Do(context.Background())
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 设置索引映射数据
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) SetIndexMapping(index, typ, metaMapping string) (bool, error) {
+	if len(index) == 0 || len(metaMapping) == 0 {
+		return false, errors.New("argument error")
+	}
+
+	if len(typ) == 0 {
+		typ = "_doc"
+	}
+
+	mappingIndex, err := s.client.PutMapping().Index(index).Type(typ).BodyString(metaMapping).Do(context.Background())
+	if err != nil {
+		return false, err
+	}
+
+	return mappingIndex.Acknowledged, nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取索引状态数据
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) GetIndexStatus(index ...string) (interface{}, error) {
+	if len(index) == 0 {
+		return nil, errors.New("argument error")
+	}
+
+	return s.client.IndexStats().Index(index...).Do(context.Background())
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 创建索引
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) CreateIndex(index, metaMapping string) (bool, error) {
-	s.ensureElasticClient()
+func (s *search) CreateIndex(index string, metaMapping ...string) (bool, error) {
+	if len(index) == 0 {
+		return false, errors.New("argument error")
+	}
 
-	createIndex, err := s.client.
-		CreateIndex(index).
-		Body(metaMapping).
-		Do(context.Background())
+	var metaData string
+	if len(metaMapping) > 0 {
+		metaData = metaMapping[0]
+	}
+
+	createIndex, err := s.client.CreateIndex(index).Body(metaData).Do(context.Background())
 	if err != nil {
 		return false, err
 	}
@@ -52,10 +133,8 @@ func (s *searchIndex) CreateIndex(index, metaMapping string) (bool, error) {
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 删除索引
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) DeleteIndex(index string) (bool, error) {
-	s.ensureElasticClient()
-
-	deleteIndex, err := s.client.DeleteIndex(index).Do(context.Background())
+func (s *search) DeleteIndex(index ...string) (bool, error) {
+	deleteIndex, err := s.client.DeleteIndex(index...).Do(context.Background())
 	if err != nil {
 		return false, err
 	}
@@ -64,26 +143,34 @@ func (s *searchIndex) DeleteIndex(index string) (bool, error) {
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 判断索引数据是否存在
+ * 刷新索引
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) IsIndexDataExists(index, typ, id string) (bool, error) {
-	s.ensureElasticClient()
-
-	exists, err := s.client.Exists().Index(index).Type(typ).Id(id).Do(context.Background())
-	if err != nil {
-		return false, err
+func (s *search) RefreshIndex(index ...string) error {
+	if len(index) == 0 {
+		return errors.New("argument error")
 	}
 
-	return exists, nil
+	_, err := s.client.Refresh().Index(index...).Do(context.Background())
+	return err
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 保存索引数据到磁盘
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) FlushIndex(index ...string) error {
+	if len(index) == 0 {
+		return errors.New("argument error")
+	}
+
+	_, err := s.client.Flush().Index(index...).Do(context.Background())
+	return err
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 获取索引数据
  * err = json.Unmarshal(*doc.Source, &type)
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) GetIndexData(index, typ, id string) (interface{}, error) {
-	s.ensureElasticClient()
-
+func (s *search) GetData(index, typ, id string) (interface{}, error) {
 	if len(index) == 0 ||
 		len(typ) == 0 ||
 		len(id) == 0 {
@@ -91,7 +178,6 @@ func (s *searchIndex) GetIndexData(index, typ, id string) (interface{}, error) {
 	}
 
 	var source interface{}
-
 	doc, err := s.client.Get().
 		Index(index).
 		Type(typ).
@@ -114,9 +200,7 @@ func (s *searchIndex) GetIndexData(index, typ, id string) (interface{}, error) {
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 索引数据
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) IndexData(index, typ, id string, data interface{}) error {
-	s.ensureElasticClient()
-
+func (s *search) IndexData(index, typ, id string, data interface{}) error {
 	if len(index) == 0 ||
 		len(typ) == 0 ||
 		len(id) == 0 {
@@ -132,8 +216,7 @@ func (s *searchIndex) IndexData(index, typ, id string, data interface{}) error {
 			BodyString(bodyString).
 			Do(context.Background())
 	} else {
-		bodyJson, err := glib.ToJson(data)
-		if err == nil {
+		if bodyJson, err := glib.ToJson(data); err == nil {
 			_, err = s.client.Index().
 				Index(index).
 				Type(typ).
@@ -147,38 +230,47 @@ func (s *searchIndex) IndexData(index, typ, id string, data interface{}) error {
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 刷新内存数据到磁盘
+ * 分词结果
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) FlushIndexData(index string) error {
-	s.ensureElasticClient()
+func (s *search) Analyze(index, content string, analyzer ...string) ([]string, error) {
+	currentAnalyzer := "ik_max_word"
+	tokens := make([]string, 0)
 
-	if len(index) == 0 {
-		return errors.New("argument error")
+	if len(analyzer) > 0 {
+		currentAnalyzer = analyzer[0]
 	}
 
-	_, err := s.client.Flush().Index(index).Do(context.Background())
-	return err
+	//分词器
+	indexAnalyzer := s.client.IndexAnalyze().Analyzer(currentAnalyzer)
+
+	if len(index) > 0 {
+		indexAnalyzer = indexAnalyzer.Index(index)
+	}
+
+	//分词结果
+	if res, err := indexAnalyzer.Text(content).Do(context.Background()); err != nil {
+		return nil, err
+	} else {
+		for _, token := range res.Tokens {
+			tokens = append(tokens, token.Token)
+		}
+	}
+
+	return tokens, nil
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 简单查询数据
+ * 查询结果
  * elastic.NewTermQuery("username", "mliu")
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) Query(
-	query elastic_api.Query,
-	option *QueryOption) (*elastic_api.SearchResult, error) {
-
-	s.ensureElasticClient()
-
+func (s *search) Query(query elastic_api.Query, option *QueryOption) (*elastic_api.SearchResult, error) {
 	//默认查询选项
 	if option == nil {
 		option = DefaultQueryOption()
 	}
 
 	//查询对象
-	search := s.client.Search().
-		Query(query).
-		Pretty(true)
+	search := s.client.Search().Query(query).Pretty(true)
 
 	if len(option.Indexs) > 0 {
 		search = search.Index(option.Indexs...)
@@ -212,84 +304,42 @@ func (s *searchIndex) Query(
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 复杂搜索数据
+ * 搜索接口
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) Search() *elastic_api.SearchService {
-	s.ensureElasticClient()
+func (s *search) Search() *elastic_api.SearchService {
+	return s.client.Search()
+}
 
-	searchIndex := elastic_api.NewSearchService(s.client)
-	return searchIndex
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 搜索接口
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *search) MultiSearch() *elastic_api.MultiSearchService {
+	return s.client.MultiSearch()
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * Bulk批处理
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) Bulk(requests ...elastic_api.BulkableRequest) (*elastic_api.BulkResponse, error) {
+func (s *search) Bulk(requests ...elastic_api.BulkableRequest) (*elastic_api.BulkResponse, error) {
 	bulkRequest := s.client.Bulk()
 	return bulkRequest.Add(requests...).Do(context.Background())
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 获取搜索文字的分词结果
+ * 获取搜索客户端
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) GetTokens(index, text string, analyzer ...string) ([]string, error) {
-	currentAnalyzer := "ik_max_word"
-	tokens := make([]string, 0)
-
-	if len(analyzer) > 0 {
-		currentAnalyzer = analyzer[0]
-	}
-
-	//分词器
-	indexAnalyzer := s.client.IndexAnalyze().Analyzer(currentAnalyzer)
-	if len(index) > 0 {
-		indexAnalyzer = indexAnalyzer.Index(index)
-	}
-
-	//分词结果
-	if res, err := indexAnalyzer.Text(text).Do(context.Background()); err != nil {
-		return nil, err
-	} else {
-		for _, token := range res.Tokens {
-			tokens = append(tokens, token.Token)
-		}
-	}
-
-	return tokens, nil
-}
-
-/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 获取搜索引擎客户端
- * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) GetClient() *elastic_api.Client {
+func (s *search) GetClient() *elastic_api.Client {
 	return s.client
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 获取搜索引擎服务版本
+ * 获取搜索服务器版本
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) Version(url string) (string, error) {
+func (s *search) Version() (string, error) {
+	url := "http://127.0.0.1:9200"
+	if s.option != nil {
+		url = s.option.Hosts[0]
+	}
+
 	return s.client.ElasticsearchVersion(url)
-}
-
-/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 初始化ElasticClient
- * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) ensureElasticClient() {
-	if s.client == nil {
-		s.initElasticClient()
-	}
-}
-
-/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * init ElasticClient
- * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *searchIndex) initElasticClient() {
-	if elasticClient, err := elastic_api.NewClient(
-		elastic_api.SetURL(s.option.Hosts...),
-		elastic_api.SetHealthcheckInterval(time.Duration(s.option.HealthcheckInterval)*time.Second),
-		elastic_api.SetMaxRetries(s.option.MaxRetries)); err == nil {
-
-		s.client = elasticClient
-	}
 }

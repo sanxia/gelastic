@@ -21,52 +21,67 @@ import (
  * elastic_api.NewTermQuery("fieldname", "fieldvalue")
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 type (
-	ISearchIndex interface {
-		IsIndexExists(index string) (bool, error)
-		CreateIndex(index, metaMapping string) (bool, error)
-		DeleteIndex(index string) (bool, error)
+	ISearch interface {
+		IsIndexExists(index ...string) (bool, error)
+		IsDataExists(index, typ, id string) (bool, error)
 
-		IsIndexDataExists(index, typ, id string) (bool, error)
-		GetIndexData(index, typ, id string) (interface{}, error)
+		GetCount(index string) int64
+
+		GetIndexNames() ([]string, error)
+		GetIndexSettings(index ...string) (interface{}, error)
+		GetIndexMapping(index string) (interface{}, error)
+		SetIndexMapping(index, typ, metaMapping string) (bool, error)
+		GetIndexStatus(index ...string) (interface{}, error)
+
+		CreateIndex(index string, metaMapping ...string) (bool, error)
+		DeleteIndex(index ...string) (bool, error)
+		RefreshIndex(index ...string) error
+		FlushIndex(index ...string) error
+
+		GetData(index, typ, id string) (interface{}, error)
 		IndexData(index, typ, id string, data interface{}) error
-		FlushIndexData(index string) error
 
+		Analyze(index, content string, analyzer ...string) ([]string, error)
 		Query(query elastic_api.Query, option *QueryOption) (*elastic_api.SearchResult, error)
 		Search() *elastic_api.SearchService
+		MultiSearch() *elastic_api.MultiSearchService
 		Bulk(requests ...elastic_api.BulkableRequest) (*elastic_api.BulkResponse, error)
 
-		GetTokens(index, text string, analyzer ...string) ([]string, error)
-
 		GetClient() *elastic_api.Client
-		Version(url string) (string, error)
+		Version() (string, error)
 	}
 )
 
 type (
-	searchIndex struct {
-		option *IndexOption
+	search struct {
+		option *SearchOption
 		client *elastic_api.Client
 	}
 )
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 初始化SearchIndex
+ * 初始化Search
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func NewSearchIndex(option *IndexOption) (ISearchIndex, error) {
+func NewSearch(option *SearchOption) (ISearch, error) {
 	if option == nil {
-		option = DefaultIndexOption()
+		option = DefaultSearchOption()
 	}
 
-	elasticClient, err := elastic_api.NewClient(
-		elastic_api.SetURL(option.Hosts...),
-		elastic_api.SetHealthcheckInterval(time.Duration(option.HealthcheckInterval)*time.Second),
-		elastic_api.SetMaxRetries(option.MaxRetries))
+	options := make([]elastic_api.ClientOptionFunc, 0)
+	options = append(options, elastic_api.SetURL(option.Hosts...))
+	options = append(options, elastic_api.SetHealthcheckInterval(time.Duration(option.HealthcheckInterval)*time.Second))
+	options = append(options, elastic_api.SetMaxRetries(option.MaxRetries))
 
+	if option.IsAuth {
+		options = append(options, elastic_api.SetBasicAuth(option.Username, option.Password))
+	}
+
+	elasticClient, err := elastic_api.NewClient(options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &searchIndex{
+	return &search{
 		option: option,
 		client: elasticClient,
 	}, nil
