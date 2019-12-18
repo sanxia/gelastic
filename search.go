@@ -16,9 +16,7 @@ import (
  * ================================================================================ */
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 搜索索引接口
- * elastic_api.NewMatchAllQuery()
- * elastic_api.NewTermQuery("fieldname", "fieldvalue")
+ * 搜索接口
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 type (
 	ISearch interface {
@@ -30,7 +28,7 @@ type (
 		GetIndexNames() ([]string, error)
 		GetIndexSettings(index ...string) (interface{}, error)
 		GetIndexMapping(index string) (interface{}, error)
-		SetIndexMapping(index, typ, metaMapping string) (bool, error)
+		SetIndexMapping(index, metaMapping string, typ ...string) (bool, error)
 		GetIndexStatus(index ...string) (interface{}, error)
 
 		CreateIndex(index string, metaMapping ...string) (bool, error)
@@ -41,7 +39,7 @@ type (
 		GetData(index, typ, id string) (interface{}, error)
 		IndexData(index, typ, id string, data interface{}) error
 
-		Analyze(index, content string, analyzer ...string) ([]string, error)
+		Analyze(content string, analyzer ...string) ([]string, error)
 		Query(query elastic_api.Query, option *QueryOption) (*elastic_api.SearchResult, error)
 		Search() *elastic_api.SearchService
 		MultiSearch() *elastic_api.MultiSearchService

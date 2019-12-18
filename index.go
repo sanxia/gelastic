@@ -81,16 +81,17 @@ func (s *search) GetIndexMapping(index string) (interface{}, error) {
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 设置索引映射数据
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *search) SetIndexMapping(index, typ, metaMapping string) (bool, error) {
+func (s *search) SetIndexMapping(index, metaMapping string, typ ...string) (bool, error) {
 	if len(index) == 0 || len(metaMapping) == 0 {
 		return false, errors.New("argument error")
 	}
 
-	if len(typ) == 0 {
-		typ = "_doc"
+	currentType := "_doc"
+	if len(typ) > 0 {
+		currentType = typ[0]
 	}
 
-	mappingIndex, err := s.client.PutMapping().Index(index).Type(typ).BodyString(metaMapping).Do(context.Background())
+	mappingIndex, err := s.client.PutMapping().Index(index).Type(currentType).BodyString(metaMapping).Do(context.Background())
 	if err != nil {
 		return false, err
 	}
@@ -232,7 +233,7 @@ func (s *search) IndexData(index, typ, id string, data interface{}) error {
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 分词结果
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func (s *search) Analyze(index, content string, analyzer ...string) ([]string, error) {
+func (s *search) Analyze(content string, analyzer ...string) ([]string, error) {
 	currentAnalyzer := "ik_max_word"
 	tokens := make([]string, 0)
 
@@ -242,10 +243,6 @@ func (s *search) Analyze(index, content string, analyzer ...string) ([]string, e
 
 	//分词器
 	indexAnalyzer := s.client.IndexAnalyze().Analyzer(currentAnalyzer)
-
-	if len(index) > 0 {
-		indexAnalyzer = indexAnalyzer.Index(index)
-	}
 
 	//分词结果
 	if res, err := indexAnalyzer.Text(content).Do(context.Background()); err != nil {
@@ -278,6 +275,10 @@ func (s *search) Query(query elastic_api.Query, option *QueryOption) (*elastic_a
 
 	if len(option.Types) > 0 {
 		search = search.Type(option.Types...)
+	}
+
+	if option.Suggester != nil {
+		search = search.Suggester(option.Suggester)
 	}
 
 	if option.Size > 0 {

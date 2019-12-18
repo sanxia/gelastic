@@ -1,5 +1,9 @@
 package gelastic
 
+import (
+	elastic_api "github.com/olivere/elastic"
+)
+
 /* ================================================================================
  * Search Option
  * qq group: 582452342
@@ -31,13 +35,14 @@ func DefaultSearchOption() *SearchOption {
  * 查询选项数据域结构
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 type QueryOption struct {
-	Indexs      []string `form:"indexs" json:"indexs"`
-	Types       []string `form:"types" json:"types"`
-	From        int      `form:"from" json:"from"`
-	Size        int      `form:"size" json:"size"`
-	SortField   string   `form:"sort_field" json:"sort_field"`
-	Timeout     string   `form:"timeout" json:"timeout"`
-	IsAscending bool     `form:"is_ascending" json:"is_ascending"`
+	Indexs      []string              `form:"indexs" json:"indexs"`
+	Types       []string              `form:"types" json:"types"`
+	Suggester   elastic_api.Suggester `form:"suggester" json:"suggester"`
+	From        int                   `form:"from" json:"from"`
+	Size        int                   `form:"size" json:"size"`
+	SortField   string                `form:"sort_field" json:"sort_field"`
+	Timeout     string                `form:"timeout" json:"timeout"`
+	IsAscending bool                  `form:"is_ascending" json:"is_ascending"`
 }
 
 func DefaultQueryOption() *QueryOption {
