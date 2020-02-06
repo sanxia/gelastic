@@ -69,6 +69,7 @@ func NewSearch(option *SearchOption) (ISearch, error) {
 	options = append(options, elastic_api.SetURL(option.Hosts...))
 	options = append(options, elastic_api.SetHealthcheckInterval(time.Duration(option.HealthcheckInterval)*time.Second))
 	options = append(options, elastic_api.SetMaxRetries(option.MaxRetries))
+	options = append(options, elastic_api.SetSniff(option.IsSniff))
 
 	if option.IsAuth {
 		options = append(options, elastic_api.SetBasicAuth(option.Username, option.Password))

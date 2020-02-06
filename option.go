@@ -20,6 +20,7 @@ type SearchOption struct {
 	Password            string
 	HealthcheckInterval int
 	MaxRetries          int
+	IsSniff             bool
 	IsAuth              bool
 }
 
