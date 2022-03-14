@@ -1,10 +1,12 @@
 module github.com/sanxia/gelastic
 
-go 1.14
+go 1.16
 
 require (
-	github.com/mailru/easyjson v0.7.1 // indirect
-	github.com/olivere/elastic v6.2.30+incompatible
+	github.com/fortytw2/leaktest v1.3.0 // indirect
+	github.com/google/go-cmp v0.5.7 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/olivere/elastic v6.2.37+incompatible
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/sanxia/glib v1.0.1
+	github.com/sanxia/glib v1.0.2
 )
